@@ -37,11 +37,20 @@ fi
 # === Equivalent of Ansible Tasks ===
 
 # 1. Copy mongo.repo file
-cp mongo.repo /etc/yum.repos.d/mongo.repo &>> $LOGFILE
-VALIDATE $? "Copied MongoDB Repo file"
+if [ -f mongo.repo ]; then
+    cp mongo.repo /etc/yum.repos.d/mongo.repo &>> $LOGFILE
+    VALIDATE $? "Copied MongoDB Repo file"
+else
+    echo -e "$R ERROR:: mongo.repo file not found in current directory $N"
+    exit 1
+fi
 
-# 2. Install MongoDB (dnf)
-dnf install -y mongodb-org &>> $LOGFILE
+# 2. Install MongoDB (dnf/yum auto detect)
+if command -v dnf &>/dev/null; then
+    dnf install -y mongodb-org &>> $LOGFILE
+else
+    yum install -y mongodb-org &>> $LOGFILE
+fi
 VALIDATE $? "Installed MongoDB"
 
 # 3. Start & enable MongoDB service
@@ -54,6 +63,12 @@ VALIDATE $? "Started MongoDB service"
 # 4. Enable remote connections (127.0.0.1 → 0.0.0.0)
 sed -i 's/127.0.0.1/0.0.0.0/g' /etc/mongod.conf &>> $LOGFILE
 VALIDATE $? "Enabled remote connections to MongoDB"
+
+# (Optional) Allow firewall access to MongoDB
+# Uncomment these lines if firewall is running
+# firewall-cmd --add-port=27017/tcp --permanent &>> $LOGFILE
+# firewall-cmd --reload &>> $LOGFILE
+# VALIDATE $? "Opened MongoDB port 27017 in firewall"
 
 # 5. Restart MongoDB service
 systemctl restart mongod &>> $LOGFILE
