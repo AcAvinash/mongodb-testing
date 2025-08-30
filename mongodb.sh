@@ -34,46 +34,39 @@ else
     echo "You are root user"
 fi
 
-# === Equivalent of Ansible Tasks ===
+# === MongoDB Installation Steps ===
 
-# 1. Copy mongo.repo file
-if [ -f mongo.repo ]; then
-    cp mongo.repo /etc/yum.repos.d/mongo.repo &>> $LOGFILE
-    VALIDATE $? "Copied MongoDB Repo file"
-else
-    echo -e "$R ERROR:: mongo.repo file not found in current directory $N"
-    exit 1
-fi
+# 1. Setup MongoDB Repo file
+cat >/etc/yum.repos.d/mongo.repo <<EOF
+[mongodb-org-7.0]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/redhat/9/mongodb-org/7.0/x86_64/
+gpgcheck=1
+enabled=1
+gpgkey=https://pgp.mongodb.com/server-7.0.asc
+EOF
+VALIDATE $? "Created MongoDB repo file"
 
-# 2. Install MongoDB (dnf/yum auto detect)
-if command -v dnf &>/dev/null; then
-    dnf install -y mongodb-org &>> $LOGFILE
-else
-    yum install -y mongodb-org &>> $LOGFILE
-fi
+# 2. Install MongoDB
+dnf install -y mongodb-org &>> $LOGFILE
 VALIDATE $? "Installed MongoDB"
 
-# 3. Start & enable MongoDB service
+# 3. Enable & Start MongoDB service
 systemctl enable mongod &>> $LOGFILE
 VALIDATE $? "Enabled MongoDB service"
 
 systemctl start mongod &>> $LOGFILE
 VALIDATE $? "Started MongoDB service"
 
-# 4. Enable remote connections (127.0.0.1 → 0.0.0.0)
+# 4. Allow remote connections (127.0.0.1 -> 0.0.0.0)
 sed -i 's/127.0.0.1/0.0.0.0/g' /etc/mongod.conf &>> $LOGFILE
-VALIDATE $? "Enabled remote connections to MongoDB"
-
-# (Optional) Allow firewall access to MongoDB
-# Uncomment these lines if firewall is running
-# firewall-cmd --add-port=27017/tcp --permanent &>> $LOGFILE
-# firewall-cmd --reload &>> $LOGFILE
-# VALIDATE $? "Opened MongoDB port 27017 in firewall"
+VALIDATE $? "Configured MongoDB for remote access"
 
 # 5. Restart MongoDB service
 systemctl restart mongod &>> $LOGFILE
 VALIDATE $? "Restarted MongoDB service"
 
 echo -e "$G MongoDB setup completed successfully! $N"
+
 
 
